@@ -25,11 +25,7 @@ void JitX64Engine::SetupBatch(ShaderSetup& setup, unsigned int entry_point) {
         setup.engine_data.cached_shader = iter->second.get();
     } else {
         auto shader = std::make_unique<JitShader>();
-#if USE_ASYNC_SHADER
-        shader->CompileAsync(&setup.program_code, &setup.swizzle_data);
-#else
         shader->Compile(&setup.program_code, &setup.swizzle_data);
-#endif
         setup.engine_data.cached_shader = shader.get();
         cache.emplace_hint(iter, cache_key, std::move(shader));
     }

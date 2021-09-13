@@ -934,7 +934,7 @@ void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* pro
     memcpy(data, swizzle_data_, sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
 
     auto func = [this, code, data]{
-        this->Compile(
+        this->CompileImpl(
             static_cast<std::array<u32, MAX_PROGRAM_CODE_LENGTH>*>(code),
             static_cast<std::array<u32, MAX_SWIZZLE_DATA_LENGTH>*>(data)
         );
@@ -973,7 +973,7 @@ void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* pro
     memcpy(data, swizzle_data_, sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
 
     handle->tasks.push_back([this, handle, code, data] {
-        this->Compile(
+        this->CompileImpl(
             static_cast<std::array<u32, MAX_PROGRAM_CODE_LENGTH>*>(code),
             static_cast<std::array<u32, MAX_SWIZZLE_DATA_LENGTH>*>(data)
         );
@@ -986,8 +986,8 @@ void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* pro
 }
 #endif
 
-void JitShader::Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
-                        const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
+void JitShader::CompileImpl(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
+                            const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
     program_code = program_code_;
     swizzle_data = swizzle_data_;
 
@@ -1049,6 +1049,15 @@ void JitShader::Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_
     LOG_DEBUG(HW_GPU, "Compiled shader size={}", getSize());
 
     is_shader_ready = true;
+}
+
+void JitShader::Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
+                        const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
+#if USE_ASYNC_SHADER
+    CompileAsync(program_code_, swizzle_data_);
+#else
+    CompileImpl(program_code_, swizzle_data_);
+#endif
 }
 
 JitShader::JitShader() : Xbyak::CodeGenerator(MAX_SHADER_SIZE) {

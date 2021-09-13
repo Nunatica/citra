@@ -40,6 +40,8 @@ public:
 
     void Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code,
                  const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data);
+    void CompileImpl(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code,
+                 const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data);
     void CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code,
                       const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data);
 

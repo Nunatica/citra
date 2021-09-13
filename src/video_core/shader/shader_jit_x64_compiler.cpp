@@ -925,7 +925,7 @@ static ShaderTaskHandle* GetShaderTaskHandle() {
     return handle;
 }
 
-#if 1
+#if 0
 void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
                              const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
     auto code = malloc(sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
@@ -947,14 +947,14 @@ void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* pro
 }
 #endif
 
-#if 0
+#if 1
 void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
                              const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
     auto handle = GetShaderTaskHandle();
     const std::lock_guard<std::mutex> lock1(handle->mutex);
 
-    void* code;
-    void* data;
+    void* code = nullptr;
+    void* data = nullptr;
 
     if (handle->mem_code.size() == 0) {
         code = malloc(sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
@@ -963,9 +963,9 @@ void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* pro
         handle->mem_code.pop_front();
     }
     if (handle->mem_data.size() == 0) {
-        code = malloc(sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
+        data = malloc(sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
     } else {
-        code = handle->mem_data.front();
+        data = handle->mem_data.front();
         handle->mem_data.pop_front();
     }
 

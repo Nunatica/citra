@@ -34,11 +34,14 @@ public:
     JitShader();
 
     void Run(const ShaderSetup& setup, UnitState& state, unsigned offset) const {
+        if (!is_shader_ready) return;
         program(&setup.uniforms, &state, instruction_labels[offset].getAddress());
     }
 
     void Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code,
                  const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data);
+    void CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code,
+                      const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data);
 
     void Compile_ADD(Instruction instr);
     void Compile_DP3(Instruction instr);
@@ -129,6 +132,7 @@ private:
 
     unsigned program_counter = 0; ///< Offset of the next instruction to decode
     bool looping = false;         ///< True if compiling a loop, used to check for nested loops
+    bool is_shader_ready = false; ///Check shader is ready to use.
 
     using CompiledShader = void(const void* setup, void* state, const u8* start_addr);
     CompiledShader* program = nullptr;

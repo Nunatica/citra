@@ -21,6 +21,8 @@
 #include "video_core/regs_rasterizer.h"
 #include "video_core/regs_shader.h"
 
+#define USE_ASYNC_SHADER 1
+
 using nihstro::DestRegister;
 using nihstro::RegisterType;
 using nihstro::SourceRegister;

@@ -3,6 +3,11 @@
 // Refer to the license.txt file included.
 
 #include <algorithm>
+#include <deque>
+#include <mutex>
+#include <chrono>
+#include <thread>
+#include <functional>
 #include <cmath>
 #include <cstdint>
 #include <nihstro/shader_bytecode.h>
@@ -884,6 +889,103 @@ void JitShader::FindReturnOffsets() {
     std::sort(return_offsets.begin(), return_offsets.end());
 }
 
+typedef struct {
+    std::mutex mutex;
+    std::deque<void*> mem_code;
+    std::deque<void*> mem_data;
+    std::deque<std::function<void()>> tasks;
+} ShaderTaskHandle;
+
+static ShaderTaskHandle* GetShaderTaskHandle() {
+    static ShaderTaskHandle* handle = nullptr;
+    if (!handle) {
+        handle = new ShaderTaskHandle();
+
+        auto func = [] {
+            std::function<void()> f;
+
+            while (true) {
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                f = nullptr;
+
+                if (handle->tasks.size() > 0) {
+                    const std::lock_guard<std::mutex> lock(handle->mutex);
+                    //Double checking is not needed.
+                    f = handle->tasks.front();
+                    handle->tasks.pop_front();
+                }
+
+                if (f) f();
+            }
+        };
+
+        std::thread th(func);
+        th.detach();
+    }
+    return handle;
+}
+
+#if 1
+void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
+                             const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
+    auto code = malloc(sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
+    auto data = malloc(sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
+    memcpy(code, program_code_, sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
+    memcpy(data, swizzle_data_, sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
+
+    auto func = [this, code, data]{
+        this->Compile(
+            static_cast<std::array<u32, MAX_PROGRAM_CODE_LENGTH>*>(code),
+            static_cast<std::array<u32, MAX_SWIZZLE_DATA_LENGTH>*>(data)
+        );
+        free(code);
+        free(data);
+    };
+
+    std::thread th(func);
+    th.detach();
+}
+#endif
+
+#if 0
+void JitShader::CompileAsync(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
+                             const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
+    auto handle = GetShaderTaskHandle();
+    const std::lock_guard<std::mutex> lock1(handle->mutex);
+
+    void* code;
+    void* data;
+
+    if (handle->mem_code.size() == 0) {
+        code = malloc(sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
+    } else {
+        code = handle->mem_code.front();
+        handle->mem_code.pop_front();
+    }
+    if (handle->mem_data.size() == 0) {
+        code = malloc(sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
+    } else {
+        code = handle->mem_data.front();
+        handle->mem_data.pop_front();
+    }
+
+    memcpy(code, program_code_, sizeof(std::array<u32, MAX_PROGRAM_CODE_LENGTH>));
+    memcpy(data, swizzle_data_, sizeof(std::array<u32, MAX_SWIZZLE_DATA_LENGTH>));
+
+    handle->tasks.push_back([this, handle, code, data] {
+        this->Compile(
+            static_cast<std::array<u32, MAX_PROGRAM_CODE_LENGTH>*>(code),
+            static_cast<std::array<u32, MAX_SWIZZLE_DATA_LENGTH>*>(data)
+        );
+        {
+            const std::lock_guard<std::mutex> lock2(handle->mutex);
+            handle->mem_code.push_back(code);
+            handle->mem_data.push_back(data);
+        }
+    });
+}
+#endif
+
 void JitShader::Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_code_,
                         const std::array<u32, MAX_SWIZZLE_DATA_LENGTH>* swizzle_data_) {
     program_code = program_code_;
@@ -945,6 +1047,8 @@ void JitShader::Compile(const std::array<u32, MAX_PROGRAM_CODE_LENGTH>* program_
 
     ASSERT_MSG(getSize() <= MAX_SHADER_SIZE, "Compiled a shader that exceeds the allocated size!");
     LOG_DEBUG(HW_GPU, "Compiled shader size={}", getSize());
+
+    is_shader_ready = true;
 }
 
 JitShader::JitShader() : Xbyak::CodeGenerator(MAX_SHADER_SIZE) {
